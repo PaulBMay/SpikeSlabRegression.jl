@@ -2,10 +2,11 @@ using LinearAlgebra
 using ProgressBars
 using Random, Distributions
 using Plots
+using StatsFuns
 
-n = 10_000
+n = 1_000
 
-nω = 10
+nω = 5
 ωlb = 1
 ωub = 5
 
@@ -79,6 +80,9 @@ amp_hat2 = reshape(B2[2:end], 2, sum(z))'
 norm.(eachrow(amp_hat2))
 norm.(eachrow(amp))[z] # Phew, that's better! =#
 
+
+
+
 function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::NamedTuple, nsamps::Integer)
 
     # dims
@@ -95,18 +99,16 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
         X[:,col+1] .= sinpi.(2*ω[j]*t)
     end
 
-    Xz = copy(X)
-
     # initial values and allocations
 
     B = (X'*X) \ (X'*y)
     fit = X*B
-    fit_temp = copy(fit)
     
-    z = fill(true, nω)
+    z = fill(true, nω + 1) # An extra leading true to represent the intercept
+    active = view(z, [1; repeat(2:(nω+1), inner = 2)])
+
     zsamps = fill(false, nsamps, nω)
-    zfull = view(z, repeat(1:nω, inner = 2))
-    active = [true; zfull]
+
     
     τ = n / norm(y - fit)^2
     τsamps = zeros(nsamps)
@@ -118,10 +120,10 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
     Qpost = (X'*X) + Qprior
     Bmu = similar(B)
 
-    Xzy = Xz'*y
     Xy = X'*y
-    XzXz = Xz'*Xz
+    Xzy = copy(Xy)
     XX = X'*X
+    XzXz = copy(XX)
 
 
     for m in ProgressBar(1:nsamps)
@@ -131,49 +133,26 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
 
         for j in 1:nω
 
-            zj = z[j]
-            inds = (2*j):(2*j + 1)
-            Xblock = view(X, :, inds)
+            zj_prev = z[j+1]
 
-            # z_j = 0?
-            if zj
-                fit_temp .-= Xblock*view(B, inds)
-            end
-            negative = log(1 - priors.zprob) - 0.5*τ*sum((y - fit_temp).^2)
+            z[j+1] = true
+            lp_affirmative = @views log(priors.zprob) + τ*( dot(Xy[active], B[active]) - 0.5*dot(B[active], XX[active, active], B[active]) )
 
-            # z_j = 1?
-            if !zj
-                fit_temp .+= Xblock*view(B, inds)
-            end
-            affirmative = log(priors.zprob) - 0.5*τ*sum((y - fit_temp).^2)
+            z[j+1] = false
+            lp_negative = @views log(1 - priors.zprob) + τ*( dot(Xy[active], B[active]) - 0.5*dot(B[active], XX[active, active], B[active]) )
 
-            logsum = max(affirmative, negative) + log1p(exp(-abs(affirmative - negative)))
-            affirmative_prob = exp(affirmative - logsum)
+            affirmative_prob = exp(lp_affirmative - logsumexp([lp_affirmative, lp_negative]))
 
-            z[j] = rand() < affirmative_prob
+            z[j+1] = rand() < affirmative_prob
 
-            # Need to update Xz and related mats?
-            if zj & !z[j] 
-                Xz[:,inds] .= 0
-                Xzy[inds] .= 0
-                XzXz[inds,:] .= 0
-                XzXz[:,inds] .= 0
-                fit .= fit_temp
-            elseif !zj & z[j]
-                Xz[:,inds] .= Xblock
-                Xzy[inds] .= view(Xy, inds)
-                active .= [true; zfull]
-                XzXz[inds, active] .= view(XX, inds, active)
-                XzXz[active, inds] .= view(XX, active, inds)
-                fit .= fit_temp
-            else
-                fit_temp .= fit
-            end
         end
 
         # Sample B
 
-        Qpost .= Symmetric(XzXz + (1/τ)*Qprior)
+        XzXz .= @. active * XX * active'
+        Xzy .= Xy .* active
+
+        Qpost .= Symmetric(XzXz  + (1/τ)*Qprior)
         cholesky!(Qpost)
         QpU = UpperTriangular(Qpost)
 
@@ -182,19 +161,19 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
 
         B .= Bmu + sqrt(1/τ)*(QpU \ randn(p))
 
-        fit .= Xz*B
-        fit_temp .= fit
-
         # Sample τ
+
+        fit .= @views X[:,active]*B[active]
+
 
         sse = sum((y - fit).^2)
         τscale = 1 / (priors.τ[2] + sse/2)
         τ = rand(Gamma(τshape, τscale))
         # Write samples
 
-        ampsamps[m,:] .= z .* norm.(eachrow(reshape(B[2:end], 2, nω)'))
+        ampsamps[m,:] .= @views z[2:(nω+1)] .* norm.(eachrow(reshape(B[2:p], 2, nω)'))
         τsamps[m] = τ
-        zsamps[m,:] .= z
+        zsamps[m,:] .= view(z, 2:(nω+1))
 
 
     end
