@@ -17,6 +17,7 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
     # initial values and allocations
 
     B = (X'*X) \ (X'*y)
+    Bsamps = zeros(nsamps, p)
     fit = X*B
     
     z = fill(true, nω + 1) # An extra leading true to represent the intercept
@@ -89,12 +90,13 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
         ampsamps[m,:] .= @views z[2:(nω+1)] .* norm.(eachrow(reshape(B[2:p], 2, nω)'))
         τsamps[m] = τ
         zsamps[m,:] .= view(z, 2:(nω+1))
+        Bsamps[m,:] .= B
 
 
     end
 
 
-    return (amp = ampsamps, τ = τsamps, z = zsamps)
+    return (amp = ampsamps, τ = τsamps, z = zsamps, X = X, B = Bsamps)
 
 
 
