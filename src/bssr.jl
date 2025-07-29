@@ -1,3 +1,21 @@
+function sindesign(t::AbstractVector, ω::AbstractVector)
+
+    n = length(t)
+    nω = length(ω)
+    p = nω + 1
+
+    X = zeros(n, p)
+    X[:,1] .= 1.0
+    for j in 1:nω
+        col = 2*j
+        X[:,col] .= cospi.(2*ω[j]*t)
+        X[:,col+1] .= sinpi.(2*ω[j]*t)
+    end
+
+    return X
+
+end
+
 function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::NamedTuple, nsamps::Integer)
 
     # dims
@@ -6,13 +24,7 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
     p = 1 + 2*nω
 
     # Form design matrix
-    X = zeros(n, p)
-    X[:,1] .= 1.0
-    for j in 1:nω
-        col = 2*j
-        X[:,col] .= cospi.(2*ω[j]*t)
-        X[:,col+1] .= sinpi.(2*ω[j]*t)
-    end
+    X = sindesign(t, ω)
 
     # initial values and allocations
 
