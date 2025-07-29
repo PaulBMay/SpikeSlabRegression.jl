@@ -2,7 +2,7 @@ function sindesign(t::AbstractVector, ω::AbstractVector)
 
     n = length(t)
     nω = length(ω)
-    p = nω + 1
+    p = 2*nω + 1
 
     X = zeros(n, p)
     X[:,1] .= 1.0
