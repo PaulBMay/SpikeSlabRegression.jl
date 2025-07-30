@@ -23,7 +23,7 @@ Random.seed!(92)
 
 t = sort(rand(n))
 
-amp = randn(nω, 2)
+amp = 3 .* randn(nω, 2)
 phase = rand(nω)
 z = rand(nω) .< zprob
 sum(z)
@@ -44,7 +44,7 @@ plot(t, y)
 priors = (zprob = zprob, Bprec = [1,1], τ = SpikeSlabRegression.gammashaperate(1, 0.25))
 nsamps = 10_000
 
-samples = BSSR(y, t, ω, priors, nsamps)
+samples = BSSR(y, t, ω, priors, nsamps; progress = false)
 
 plot(samples.τ)
 plot(sqrt.(1 ./ samples.τ))

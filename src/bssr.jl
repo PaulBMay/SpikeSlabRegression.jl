@@ -16,7 +16,7 @@ function sindesign(t::AbstractVector, ω::AbstractVector)
 
 end
 
-function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::NamedTuple, nsamps::Integer)
+function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::NamedTuple, nsamps::Integer; progress = true)
 
     # dims
     n = length(y)
@@ -53,8 +53,13 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
     XX = X'*X
     XzXz = copy(XX)
 
+    if progress
+        iter = ProgressBar(1:nsamps)
+    else
+        iter = 1:nsamps
+    end
 
-    for m in ProgressBar(1:nsamps)
+    for m in iter
 
 
         # Sample z_j; j = 1,…,nω
