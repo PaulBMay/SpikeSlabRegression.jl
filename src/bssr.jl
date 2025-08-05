@@ -120,12 +120,17 @@ function BSSR(y::AbstractVector, t::AbstractVector, ω::AbstractVector, priors::
 
 end
 
-function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::NamedTuple; progress = true)
+function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::NamedTuple, nsamps::Integer; progress = true)
+
+
 
     # dims
-    nsamps, n = size(Y)
+    nsamps_old, n = size(Y)
     nω = length(ω)
     p = 1 + 2*nω
+
+    # Extract (or repeat) the Y samples
+    Y = Y[mod1.(1:nsamps, nsamps_old),:]
 
     # Form design matrix
     X = sindesign(t, ω)
