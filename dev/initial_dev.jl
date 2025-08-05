@@ -9,7 +9,7 @@ using StatsFuns
 
 n = 1_000
 
-nω = 100
+nω = 10
 ωlb = 5
 ωub = 10
 
@@ -17,7 +17,7 @@ nω = 100
 
 σ = 1
 
-zprob = 0.05
+zprob = 0.2
 
 Random.seed!(92)
 
@@ -46,6 +46,10 @@ nsamps = 10_000
 
 samples = BSSR(y, t, ω, priors, nsamps; progress = false)
 
+ampmu = mean(samples.amp, dims = 1)[1,:]
+amplb = quantile.(eachcol(samples.amp), 0.025)
+ampub = quantile.(eachcol(samples.amp), 0.975)
+
 plot(samples.τ)
 plot(sqrt.(1 ./ samples.τ))
 
@@ -64,4 +68,22 @@ ampmu
 
 scatter(ampmu, amptrue)
 
+######################
 
+Y = 1.0*randn(nsamps, n) .+ y'
+
+
+samples2 = BSSR(Y, t, ω, priors; progress = false)
+
+ampmu2 = mean(samples2.amp, dims = 1)[1,:]
+amplb2 = quantile.(eachcol(samples2.amp), 0.025)
+ampub2 = quantile.(eachcol(samples2.amp), 0.975)
+
+
+plot(ω, ampmu)
+plot!(ω, amplb)
+plot!(ω, ampub)
+
+plot(ω, ampmu2)
+plot!(ω, amplb2)
+plot!(ω, ampub2)
