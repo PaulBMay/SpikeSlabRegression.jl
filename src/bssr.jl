@@ -233,6 +233,125 @@ function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::
 
 end
 
+function BSSR2(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::NamedTuple, nsamps::Integer; progress = true)
+
+
+
+    # dims
+    nsamps_old, n = size(Y)
+    nω = length(ω)
+    p = 1 + 2*nω
+
+    # Extract (or repeat) the Y samples
+    Y = Y[mod1.(1:nsamps, nsamps_old),:]
+
+    # Form design matrix
+    X = sindesign(t, ω)
+
+    # initial values and allocations
+    ymu = mean(Y, dims = 1)[1,:]
+    B = (X'*X) \ (X'*ymu)
+    Bsamps = zeros(nsamps, p)
+    fit = X*B
+    
+    zprob = fill(priors.zshape[1]/sum(priors.zshape), nω)
+    z = [true; fill(false, nω)] # An extra leading true to represent the intercept
+    active = view(z, [1; repeat(2:(nω+1), inner = 2)])
+
+    zsamps = fill(false, nsamps, nω)
+
+    
+    τ = n / norm(ymu - fit)^2
+    τsamps = zeros(nsamps)
+    τshape = priors.τ[1] + n/2
+
+    ampsamps = zeros(nsamps, nω)
+
+    Qprior = Diagonal(1.0*[priors.Bprec[1]; fill(priors.Bprec[2], 2*nω)])
+    Qpost = (X'*X) + Qprior
+    Bmu = similar(B)
+
+    y = copy(ymu)
+    Xy = X'*ymu
+    Xzy = copy(Xy)
+    XX = X'*X
+    XzXz = copy(XX)
+
+    if progress
+        iter = ProgressBar(1:nsamps)
+    else
+        iter = 1:nsamps
+    end
+
+    for m in iter
+
+        y .= Y[m,:]
+        Xy .= X'*y
+
+
+        # Sample z_j; j = 1,…,nω
+
+        for j in 1:nω
+
+            z[j+1] = true
+            lp_affirmative = @views log(zprob[j]) + τ*( dot(Xy[active], B[active]) - 0.5*dot(B[active], XX[active, active], B[active]) )
+
+            z[j+1] = false
+            lp_negative = @views log(1 - zprob[j]) + τ*( dot(Xy[active], B[active]) - 0.5*dot(B[active], XX[active, active], B[active]) )
+
+            affirmative_prob = exp(lp_affirmative - logsumexp([lp_affirmative, lp_negative]))
+
+            z[j+1] = rand() < affirmative_prob
+
+        end
+
+        # Sample zprob_j; j = 1,…,nω
+
+        for j in 1:nω
+            zprob[j] = rand( Beta(priors.zshape[1] + z[j], priors.zshape[2] + 1 - z[j]) ) 
+        end
+
+        # Sample B
+
+        XzXz .= @. active * XX * active'
+        Xzy .= Xy .* active
+
+        Qpost .= Symmetric(XzXz  + (1/τ)*Qprior)
+        cholesky!(Qpost)
+        QpU = UpperTriangular(Qpost)
+
+        ldiv!(Bmu, QpU', Xzy)
+        ldiv!(QpU, Bmu)
+
+        B .= Bmu + sqrt(1/τ)*(QpU \ randn(p))
+
+        # Sample τ
+
+        fit .= @views X[:,active]*B[active]
+
+
+        sse = sum((y - fit).^2)
+        τscale = 1 / (priors.τ[2] + sse/2)
+        τ = rand(Gamma(τshape, τscale))
+        # Write samples
+
+        ampsamps[m,:] .= @views z[2:(nω+1)] .* norm.(eachrow(reshape(B[2:p], 2, nω)'))
+        τsamps[m] = τ
+        zsamps[m,:] .= view(z, 2:(nω+1))
+        Bsamps[m,:] .= B
+
+
+    end
+
+
+    return (amp = ampsamps, τ = τsamps, z = zsamps, X = X, B = Bsamps)
+
+
+
+
+end
+
+
 function gammashaperate(mu, std)
 
     shape = @. (mu/std)^2

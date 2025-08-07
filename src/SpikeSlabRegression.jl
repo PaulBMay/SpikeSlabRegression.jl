@@ -8,6 +8,7 @@ using StatsFuns
 
 include("bssr.jl")
 export BSSR
+export BSSR2
 export sindesign
 
 end
