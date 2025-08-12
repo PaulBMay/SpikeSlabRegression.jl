@@ -154,6 +154,8 @@ function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::
 
     ampsamps = zeros(nsamps, nω)
 
+    R2samps = zeros(nsamps)
+
     Qprior = Diagonal(1.0*[priors.Bprec[1]; fill(priors.Bprec[2], 2*nω)])
     Qpost = (X'*X) + Qprior
     Bmu = similar(B)
@@ -222,7 +224,7 @@ function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::
         τsamps[m] = τ
         zsamps[m,:] .= view(z, 2:(nω+1))
         Bsamps[m,:] .= B
-
+        R2samps[m] = 1 - var(fit - y)/var(y)
         fitmu .+= fit ./ nsamps
 
 
