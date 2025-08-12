@@ -140,6 +140,7 @@ function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::
     B = (X'*X) \ (X'*ymu)
     Bsamps = zeros(nsamps, p)
     fit = X*B
+    fitmu = zeros(n)
     
     z = [true; fill(false, nω)] # An extra leading true to represent the intercept
     active = view(z, [1; repeat(2:(nω+1), inner = 2)])
@@ -222,11 +223,13 @@ function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::
         zsamps[m,:] .= view(z, 2:(nω+1))
         Bsamps[m,:] .= B
 
+        fitmu .+= fit ./ nsamps
+
 
     end
 
 
-    return (amp = ampsamps, τ = τsamps, z = zsamps, X = X, B = Bsamps)
+    return (amp = ampsamps, τ = τsamps, z = zsamps, X = X, B = Bsamps, fit = fitmu)
 
 
 
