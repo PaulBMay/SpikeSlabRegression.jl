@@ -141,7 +141,7 @@ function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::
     Bsamps = zeros(nsamps, p)
     fit = X*B
     
-    z = fill(true, nω + 1) # An extra leading true to represent the intercept
+    z = [true; fill(false, nω)] # An extra leading true to represent the intercept
     active = view(z, [1; repeat(2:(nω+1), inner = 2)])
 
     zsamps = fill(false, nsamps, nω)
