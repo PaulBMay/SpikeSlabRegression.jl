@@ -231,7 +231,7 @@ function BSSR(Y::AbstractMatrix, t::AbstractVector, ω::AbstractVector, priors::
     end
 
 
-    return (amp = ampsamps, τ = τsamps, z = zsamps, X = X, B = Bsamps, fit = fitmu)
+    return (amp = ampsamps, τ = τsamps, z = zsamps, X = X, B = Bsamps, fit = fitmu, R2 = R2samps)
 
 
 
